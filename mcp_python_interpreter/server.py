@@ -2,7 +2,8 @@
 MCP Python Interpreter
 
 A Model Context Protocol server for interacting with Python environments 
-and executing Python code. All operations are confined to a specified working directory.
+and executing Python code. All operations are confined to a specified working directory
+or allowed system-wide if explicitly enabled.
 """
 
 import os
@@ -29,6 +30,9 @@ parser.add_argument('--python-path', type=str, default=None,
                     help='Custom Python interpreter path to use as default')
 args, unknown = parser.parse_known_args()
 
+# Check if system-wide access is enabled via environment variable
+ALLOW_SYSTEM_ACCESS = os.environ.get('MCP_ALLOW_SYSTEM_ACCESS', 'false').lower() in ('true', '1', 'yes')
+
 # Set and create working directory
 WORKING_DIR = Path(args.dir).absolute()
 WORKING_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,17 +43,33 @@ DEFAULT_PYTHON_PATH = args.python_path if args.python_path else sys.executable
 # Print startup message to stderr (doesn't interfere with MCP protocol)
 print(f"MCP Python Interpreter starting in directory: {WORKING_DIR}", file=sys.stderr)
 print(f"Using default Python interpreter: {DEFAULT_PYTHON_PATH}", file=sys.stderr)
+print(f"System-wide file access: {'ENABLED' if ALLOW_SYSTEM_ACCESS else 'DISABLED'}", file=sys.stderr)
 
 # Create our MCP server
 mcp = FastMCP(
     "Python Interpreter",
-    description=f"Execute Python code, access Python environments, and manage Python files in directory: {WORKING_DIR}",
+    description=f"Execute Python code, access Python environments, and manage Python files{' system-wide' if ALLOW_SYSTEM_ACCESS else f' in directory: {WORKING_DIR}'}",
     dependencies=["mcp[cli]"]
 )
 
 # ============================================================================
 # Helper functions
 # ============================================================================
+
+def is_path_allowed(path: Path) -> bool:
+    """
+    Check if a path is allowed based on security settings.
+    
+    Args:
+        path: Path to check
+        
+    Returns:
+        bool: True if path is allowed, False otherwise
+    """
+    if ALLOW_SYSTEM_ACCESS:
+        return True
+    
+    return str(path).startswith(str(WORKING_DIR))
 
 def get_python_environments() -> List[Dict[str, str]]:
     """Get all available Python environments (system and conda)."""
@@ -237,13 +257,13 @@ def read_file(file_path: str, max_size_kb: int = 1024) -> str:
     Returns:
         str: File content or an error message
     """
-    # Ensure file path is within the working directory
+    # Handle path based on security settings
     path = Path(file_path)
-    if path.is_absolute() and not str(path).startswith(str(WORKING_DIR)):
-        return f"Access denied: Path must be within {WORKING_DIR}"
-        
-    # Make path relative to working directory if it's not already absolute
-    if not path.is_absolute():
+    if path.is_absolute():
+        if not is_path_allowed(path):
+            return f"Access denied: System-wide file access is {'DISABLED' if not ALLOW_SYSTEM_ACCESS else 'ENABLED, but this path is not allowed'}"
+    else:
+        # Make path relative to working directory if it's not already absolute
         path = WORKING_DIR / path
     
     try:
@@ -288,10 +308,10 @@ def write_file(
     encoding: str = 'utf-8'
 ) -> str:
     """
-    Write content to a file in the working directory.
+    Write content to a file in the working directory or system-wide if allowed.
     
     Args:
-        file_path: Path to the file to write (relative to working directory)
+        file_path: Path to the file to write (relative to working directory or absolute if system access is enabled)
         content: Content to write to the file
         overwrite: Whether to overwrite the file if it exists (default: False)
         encoding: File encoding (default: utf-8)
@@ -299,13 +319,13 @@ def write_file(
     Returns:
         str: Status message about the file writing operation
     """
-    # Ensure file path is within the working directory
+    # Handle path based on security settings
     path = Path(file_path)
-    if path.is_absolute() and not str(path).startswith(str(WORKING_DIR)):
-        return f"For security reasons, you can only write files inside the working directory: {WORKING_DIR}"
-    
-    # Make path relative to working directory if it's not already
-    if not path.is_absolute():
+    if path.is_absolute():
+        if not is_path_allowed(path):
+            return f"For security reasons, you can only write files inside the working directory: {WORKING_DIR} (System-wide access is disabled)"
+    else:
+        # Make path relative to working directory if it's not already
         path = WORKING_DIR / path
     
     try:
@@ -362,11 +382,11 @@ def list_directory(directory_path: str = "") -> str:
         else:
             # Handle absolute paths
             path = Path(directory_path)
-            if path.is_absolute() and not str(path).startswith(str(WORKING_DIR)):
-                return f"Access denied: Path must be within {WORKING_DIR}"
-                
-            # Make path relative to working directory if it's not already absolute
-            if not path.is_absolute():
+            if path.is_absolute():
+                if not is_path_allowed(path):
+                    return f"Access denied: System-wide file access is {'DISABLED' if not ALLOW_SYSTEM_ACCESS else 'ENABLED, but this path is not allowed'}"
+            else:
+                # Make path relative to working directory if it's not already absolute
                 path = WORKING_DIR / directory_path
                 
         # Check if directory exists
@@ -385,13 +405,19 @@ def list_directory(directory_path: str = "") -> str:
         
         # Group files by subdirectory for better organization
         files_by_dir = {}
+        base_dir = path if ALLOW_SYSTEM_ACCESS else WORKING_DIR
+        
         for file in files:
             file_path = Path(file["path"])
-            relative_path = file_path.relative_to(WORKING_DIR)
-            parent = str(relative_path.parent)
-            
-            if parent == ".":
-                parent = "(root)"
+            try:
+                relative_path = file_path.relative_to(base_dir)
+                parent = str(relative_path.parent)
+                
+                if parent == ".":
+                    parent = "(root)"
+            except ValueError:
+                # This can happen with system-wide access enabled
+                parent = str(file_path.parent)
                 
             if parent not in files_by_dir:
                 files_by_dir[parent] = []
@@ -584,20 +610,21 @@ def write_python_file(
     overwrite: bool = False
 ) -> str:
     """
-    Write content to a Python file in the working directory.
+    Write content to a Python file in the working directory or system-wide if allowed.
     
     Args:
-        file_path: Path to the file to write (relative to working directory)
+        file_path: Path to the file to write (relative to working directory or absolute if system access is enabled)
         content: Content to write to the file
         overwrite: Whether to overwrite the file if it exists (default: False)
     """
-    # Ensure file path is within the working directory
+    # Handle path based on security settings
     path = Path(file_path)
-    if path.is_absolute() and not str(path).startswith(str(WORKING_DIR)):
-        return f"For security reasons, you can only write files inside the working directory: {WORKING_DIR}"
-    
-    # Make path relative to working directory if it's not already
-    if not path.is_absolute():
+    if path.is_absolute():
+        if not is_path_allowed(path):
+            security_status = "DISABLED" if not ALLOW_SYSTEM_ACCESS else "ENABLED, but this path is not allowed"
+            return f"For security reasons, you can only write files inside the working directory: {WORKING_DIR} (System-wide access is {security_status})"
+    else:
+        # Make path relative to working directory if it's not already
         path = WORKING_DIR / path
     
     # Check if the file exists
@@ -623,19 +650,22 @@ def run_python_file(
     arguments: Optional[List[str]] = None
 ) -> str:
     """
-    Execute a Python file in the working directory and return the result.
+    Execute a Python file and return the result.
     
     Args:
-        file_path: Path to the Python file to execute (relative to working directory)
+        file_path: Path to the Python file to execute (relative to working directory or absolute if system access is enabled)
         environment: Name of the Python environment to use (default if custom path provided, otherwise system)
         arguments: List of command-line arguments to pass to the script
     """
-    # Ensure file path is within the working directory
+    # Handle path based on security settings
     path = Path(file_path)
-    if not path.is_absolute():
+    if path.is_absolute():
+        if not is_path_allowed(path):
+            security_status = "DISABLED" if not ALLOW_SYSTEM_ACCESS else "ENABLED, but this path is not allowed"
+            return f"For security reasons, you can only run files inside the working directory: {WORKING_DIR} (System-wide access is {security_status})"
+    else:
+        # Make path relative to working directory if it's not already
         path = WORKING_DIR / path
-    elif not str(path).startswith(str(WORKING_DIR)):
-        return f"For security reasons, you can only run files inside the working directory: {WORKING_DIR}"
     
     if not path.exists():
         return f"File '{path}' not found."

@@ -44,7 +44,10 @@ uv install mcp-python-interpreter
             "/path/to/your/work/dir",
             "--python-path",
             "/path/to/your/python"
-        ]
+        ],
+        "env": {
+            "MCP_ALLOW_SYSTEM_ACCESS": 0
+        },
     }
   }
 }
@@ -63,7 +66,10 @@ For Windows:
         "C:\\path\\to\\your\\working\\directory",
         "--python-path",
         "/path/to/your/python"
-      ]
+      ],
+        "env": {
+            "MCP_ALLOW_SYSTEM_ACCESS": 0
+        },
     }
   }
 }
