@@ -156,8 +156,8 @@ def get_installed_packages(python_path: str) -> List[Dict[str, str]]:
 
 def execute_python_code(
     code: str, 
-    python_path: str | None = None,
-    working_dir: str | None = None
+    python_path: str  = None,
+    working_dir: str  = None
 ) -> Dict[str, Any]:
     """
     Execute Python code and return the result.
@@ -497,7 +497,7 @@ def list_installed_packages(environment: str = "default") -> str:
 def run_python_code(
     code: str, 
     environment: str = "default",
-    save_as: str | None = None
+    save_as: str = None
 ) -> str:
     """
     Execute Python code and return the result. Code runs in the working directory.
@@ -647,7 +647,7 @@ def write_python_file(
 def run_python_file(
     file_path: str,
     environment: str = "default",
-    arguments: List[str] | None = None
+    arguments: List[str] = None
 ) -> str:
     """
     Execute a Python file and return the result.
