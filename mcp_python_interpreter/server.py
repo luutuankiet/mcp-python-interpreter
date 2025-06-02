@@ -493,7 +493,22 @@ def list_installed_packages(environment: str = "default") -> str:
     
     return result
 
-@mcp.tool()
+@mcp.tool(
+    parameters={
+        "code": {
+            "type": "string"
+        },
+        "environment": {
+            "type": "string"
+        },
+        "save_as": {
+            "anyOf": [
+                { "type": "string" },
+                { "type": "null" }
+            ]
+        }
+    }
+)
 def run_python_code(
     code: str, 
     environment: str = "default",
