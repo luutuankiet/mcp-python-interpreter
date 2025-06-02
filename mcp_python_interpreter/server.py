@@ -156,8 +156,8 @@ def get_installed_packages(python_path: str) -> List[Dict[str, str]]:
 
 def execute_python_code(
     code: str, 
-    python_path: Optional[str] = None,
-    working_dir: Optional[str] = None
+    python_path: str | None = None,
+    working_dir: str | None = None
 ) -> Dict[str, Any]:
     """
     Execute Python code and return the result.
@@ -493,26 +493,11 @@ def list_installed_packages(environment: str = "default") -> str:
     
     return result
 
-@mcp.tool(
-    parameters={
-        "code": {
-            "type": "string"
-        },
-        "environment": {
-            "type": "string"
-        },
-        "save_as": {
-            "anyOf": [
-                { "type": "string" },
-                { "type": "null" }
-            ]
-        }
-    }
-)
+@mcp.tool()
 def run_python_code(
     code: str, 
     environment: str = "default",
-    save_as: Optional[str] = None
+    save_as: str | None = None
 ) -> str:
     """
     Execute Python code and return the result. Code runs in the working directory.
@@ -662,7 +647,7 @@ def write_python_file(
 def run_python_file(
     file_path: str,
     environment: str = "default",
-    arguments: Optional[List[str]] = None
+    arguments: List[str] | None = None
 ) -> str:
     """
     Execute a Python file and return the result.
