@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcp-python-interpreter"
-version = "1.1"
-description = "MCP server for Python code execution and environment management"
+name = "mcp-python-interpreter-adk-fork"
+version = "1.4"
+description = "MCP server for Python code execution and environment management. A fork of yzfly/mcp-python-interpreter for adk compatibility."
 authors = [
-    {name = "YZFly", email = "ethereal_ai@hotmail.com"},
+    {name = "luutuankiet", email = "dev@kenluu.org"},
 ]
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,11 +21,11 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-python-interpreter = "mcp_python_interpreter.main:main"
+mcp-python-interpreter-adk-fork = "mcp_python_interpreter.main:main"
 
 [project.urls]
-"Homepage" = "https://github.com/yzfly/mcp-python-interpreter"
-"Bug Tracker" = "https://github.com/yzfly/mcp-python-interpreter/issues"
+"Homepage" = "https://github.com/luutuankiet/mcp-python-interpreter"
+"Bug Tracker" = "https://github.com/luutuankiet/mcp-python-interpreter/issues"
 
 [tool.setuptools]
 packages = ["mcp_python_interpreter"]
